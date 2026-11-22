@@ -67,7 +67,7 @@ class Bot:
     def _plan(self, zone, t0: float) -> None:
         cx, cy = zone.get("next_center") or zone.get("center")
         nr = float(zone.get("next_radius", zone.get("radius", 0)))
-        r = max(nr - 40.0, nr * 0.6)
+        r = max(nr - 70.0, nr * 0.4)
         self.goal = (cx, cy, r)
         w = self.world
         if w is None:
@@ -176,7 +176,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif False:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -304,7 +304,7 @@ class Bot:
         need = max(0.0, math.hypot(x - gx, y - gy) - r)
         walk = self.cfg["mech"].get("walk_speed", 11.7)
         left = zone.get("shrink_end", t + 999) - t
-        return need / max(walk, 1) > 0.7 * left
+        return need / max(walk, 1) > 0.4 * left
 
     def _hold_move(self, x, y):
         w = self.world
