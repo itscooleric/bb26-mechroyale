@@ -61,6 +61,8 @@ class Bot:
         self.scan0 = self.rng.uniform(-math.pi, math.pi)
         self.bad_pickups = {}
         self.goal = (0.0, 0.0, 1e9)
+        self.recovering = False
+        self.tgt_id = None
 
     # ------------------------------------------------------------ helpers
 
@@ -153,6 +155,10 @@ class Bot:
 
         hp_frac = me["hp"] / max(me["max_hp"], 1)
         energy = me.get("energy", 0)
+        if hp_frac < 0.40:
+            self.recovering = True
+        elif hp_frac > 0.70:
+            self.recovering = False
         mechs = [m for m in obs.get("mechs", []) if m.get("kind") == "mech"]
         npcs = [m for m in obs.get("mechs", []) if m.get("kind") == "npc"]
         attackers = {d[2] for d in self.dmg if t - d[0] < 4 and d[2] is not None}
@@ -164,7 +170,30 @@ class Bot:
         cands = [m for m in mechs if m["id"] in attackers or math.dist(m["pos"][:2], (x, y)) < 160]
         if not cands:
             cands = [m for m in npcs if m["id"] in attackers]
-        target = min(cands, key=tscore) if cands else None
+        target = None
+        if cands:
+            ranked = sorted(cands, key=tscore)[:4]
+            mz = z + me["stats"].get("muzzle_height", 7)
+
+            def seen(m):
+                if w is None:
+                    return True
+                tx, ty, tz = m["pos"]
+                return w.los((x, y, mz), (tx, ty, tz + 4.5)) or w.los((x, y, mz), (tx, ty, tz + 8.0))
+
+            pool = [m for m in ranked if seen(m)] or ranked
+
+            def fscore(m):
+                s = tscore(m)
+                hp, mhp = m.get("hp"), m.get("max_hp")
+                if hp is not None and mhp and hp < 0.3 * mhp:
+                    s -= 60          # nearly dead: finish it
+                if m["id"] == self.tgt_id:
+                    s -= 30          # stick with what we're already shooting
+                return s
+
+            target = min(pool, key=fscore)
+            self.tgt_id = target["id"]
         nearest = min((math.dist(m["pos"][:2], (x, y)) for m in mechs), default=INF)
 
         # ---- movement
@@ -176,7 +205,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif self.recovering and mechs and nearest < 120:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -204,6 +233,10 @@ class Bot:
                 else:
                     move = (sx / n, sy / n)
             boost = energy > 25
+        elif not in_goal and self._late(zone, t, x, y):
+            mode = "evac"
+            move = self._path_dir(x, y)
+            boost = energy > 30
         else:
             drop = self._drop_goal(obs, mechs, x, y)
             pick = None if drop else self._pickup_goal(obs, me, mechs, x, y, t)
@@ -401,7 +434,7 @@ class Bot:
                 direct = math.atan2(ty - y, tx - x)
                 if dh < rng - 2 and abs(wrap(ayaw - direct)) < cone * 0.8 and clear and me.get("energy", 0) > 8:
                     fire[1] = True
-            elif kind == "laser":
+            elif kind == "laser" and not escaping:
                 full = st.get("charge", 0.75)
                 ch = sec.get("charge", 0)
                 if ch >= full * 0.98:
