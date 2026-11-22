@@ -160,8 +160,8 @@ class Bot:
         # ---- pick a target: whoever is shooting us, else the closest threat in range
         def tscore(m):
             d = math.dist(m["pos"][:2], (x, y))
-            return d + 0.08 * m.get("hp", 0) - (80 if m["id"] in attackers else 0)
-        cands = [m for m in mechs if m["id"] in attackers or math.dist(m["pos"][:2], (x, y)) < 160]
+            return 0.5 * d + 0.6 * m.get("hp", 0) - (120 if m["id"] in attackers else 0)
+        cands = [m for m in mechs if m["id"] in attackers or math.dist(m["pos"][:2], (x, y)) < 230]
         if not cands:
             cands = [m for m in npcs if m["id"] in attackers]
         target = min(cands, key=tscore) if cands else None
@@ -176,7 +176,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif hp_frac < 0.25 and mechs and nearest < 120:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -221,7 +221,7 @@ class Bot:
                 mode = "path"
                 move = self._path_dir(x, y)
                 boost = self._late(zone, t, x, y) and energy > 30
-            elif target is not None and math.dist(target["pos"][:2], (x, y)) < 200:
+            elif target is not None and math.dist(target["pos"][:2], (x, y)) < 240:
                 mode = "fight"
                 if t - self.strafe_t > self.rng.uniform(1.2, 2.2):
                     self.strafe, self.strafe_t = -self.strafe, t
