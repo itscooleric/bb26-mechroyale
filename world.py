@@ -205,6 +205,10 @@ class World:
                 if ii < 0 or jj < 0 or ii >= nx or jj >= ny:
                     continue
                 u = jj * nx + ii
+                if di and dj:
+                    top = max(sv, surf[u]) + step_up
+                    if surf[j * nx + ii] > top or surf[jj * nx + i] > top:
+                        continue
                 dh = sv - surf[u]
                 if dh > (step_up if (rv or roof[u]) else max(step_up, rise)):
                     continue
@@ -217,7 +221,7 @@ class World:
                 yield None
         yield dist
 
-    def descend(self, dist, x: float, y: float, look: int = 3):
+    def descend(self, dist, x: float, y: float, look: int = 1):
         """Direction (unit vector) to follow `dist` downhill from (x, y), or None at the goal."""
         k = self.cell(x, y)
         if dist[k] == 0.0:
@@ -247,6 +251,10 @@ class World:
                     ii, jj = i + di, j + dj
                     if 0 <= ii < self.nx and 0 <= jj < self.ny:
                         u = jj * self.nx + ii
+                        if di and dj:
+                            top = max(self.surf[cur], self.surf[u]) + self.step_up
+                            if self.surf[j * self.nx + ii] > top or self.surf[jj * self.nx + i] > top:
+                                continue
                         if dist[u] < nd and self.can_step(cur, u, rise):
                             nxt, nd = u, dist[u]
                 if nxt == cur:
