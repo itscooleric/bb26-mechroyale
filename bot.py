@@ -401,7 +401,7 @@ class Bot:
                 direct = math.atan2(ty - y, tx - x)
                 if dh < rng - 2 and abs(wrap(ayaw - direct)) < cone * 0.8 and clear and me.get("energy", 0) > 8:
                     fire[1] = True
-            elif kind == "laser":
+            elif kind == "laser" and not escaping:
                 full = st.get("charge", 0.75)
                 ch = sec.get("charge", 0)
                 if ch >= full * 0.98:
