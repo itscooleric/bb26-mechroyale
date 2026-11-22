@@ -176,7 +176,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif hp_frac < 0.55 and mechs and nearest < 120:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -260,7 +260,7 @@ class Bot:
         fire = [False, False]
         aim = None
         if target is not None:
-            aim, fire = self._engage(me, target, gun, sec, weapons, w, escaping=mode.startswith(("zone!", "retreat")))
+            aim, fire = self._engage(me, target, gun, sec, weapons, w, escaping=mode.startswith("zone!"))
         else:
             recent = [d for d in self.dmg if t - d[0] < 2.5]
             if recent:
