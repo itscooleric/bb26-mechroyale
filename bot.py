@@ -54,7 +54,6 @@ class Bot:
         self.heard = []             # (t, bearing, dist)
         self.trail = []             # (t, x, y)
         self.unstick_until = -1.0
-        self.move_t = 0.0             # last time we were not trying to move
         self.unstick_dir = (1.0, 0.0)
         self.strafe = 1
         self.strafe_t = 0.0
@@ -101,8 +100,7 @@ class Bot:
     def _move_toward(self, x, y, tx, ty):
         dx, dy = tx - x, ty - y
         n = math.hypot(dx, dy)
-        k = min(1.0, n / 3.0)         # slow down on arrival instead of overshooting
-        return (dx / n * k, dy / n * k) if n > 1e-6 else (0.0, 0.0)
+        return (dx / n, dy / n) if n > 1e-6 else (0.0, 0.0)
 
     def _path_dir(self, x, y):
         if self.dist is None:
@@ -191,18 +189,6 @@ class Bot:
                 move = (ax, ay)
             else:
                 move = (ax + px, ay + py)
-            if math.hypot(*move) < 0.5:
-                # foe stands on our way: sidestep, using the part of the path across the foe's line
-                fx, fy = -ax, -ay
-                dot = px * fx + py * fy
-                sx, sy = px - dot * fx, py - dot * fy
-                if math.hypot(sx, sy) < 0.2:
-                    sx, sy = -fy, fx
-                n = math.hypot(sx, sy)
-                if n < 1e-9:   # foe stacked right on top of us: no line to step across
-                    move = (px, py) if math.hypot(px, py) > 0.5 else (1.0, 0.0)
-                else:
-                    move = (sx / n, sy / n)
             boost = energy > 25
         else:
             drop = self._drop_goal(obs, mechs, x, y)
@@ -235,10 +221,7 @@ class Bot:
                 move = self._hold_move(x, y)
 
         # ---- stuck? jump and jet the way we were going
-        if math.hypot(*move) <= 0.5:
-            self.move_t = t
-        if (mode != "fight" and math.hypot(*move) > 0.5 and len(self.trail) > 10
-                and t - self.trail[0][0] > 1.4 and t - self.move_t > 1.4):
+        if move != (0.0, 0.0) and len(self.trail) > 10 and t - self.trail[0][0] > 1.4:
             moved = math.dist(self.trail[0][1:], (x, y))
             if moved < 2.5 and t > self.unstick_until + 1.5:
                 ang = math.atan2(move[1], move[0]) + self.rng.choice((-1, 1)) * self.rng.uniform(0.4, 1.3)
@@ -260,7 +243,7 @@ class Bot:
         fire = [False, False]
         aim = None
         if target is not None:
-            aim, fire = self._engage(me, target, gun, sec, weapons, w, escaping=mode.startswith(("zone!", "retreat")))
+            aim, fire = self._engage(me, target, gun, sec, weapons, w)
         else:
             recent = [d for d in self.dmg if t - d[0] < 2.5]
             if recent:
@@ -368,7 +351,7 @@ class Bot:
                 best = (dd, p)
         return best[1] if best else None
 
-    def _engage(self, me, tgt, gun, sec, weapons, w, escaping=False):
+    def _engage(self, me, tgt, gun, sec, weapons, w):
         x, y, z = me["pos"]
         mz = z + me["stats"].get("muzzle_height", 7)
         ayaw, apitch = me.get("aim", (0.0, 0.0))
@@ -413,7 +396,7 @@ class Bot:
                     fire[1] = not (laser_on and clear)
                 elif ch > 0:
                     fire[1] = True
-                elif not escaping and clear and dh < st.get("range", 280) - 5 and sec.get("cooldown", 0) <= 0.05:
+                elif clear and dh < st.get("range", 280) - 5 and sec.get("cooldown", 0) <= 0.05:
                     fire[1] = True
         return aim, fire
 
