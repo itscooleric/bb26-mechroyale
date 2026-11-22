@@ -61,6 +61,7 @@ class Bot:
         self.scan0 = self.rng.uniform(-math.pi, math.pi)
         self.bad_pickups = {}
         self.goal = (0.0, 0.0, 1e9)
+        self.recovering = False
 
     # ------------------------------------------------------------ helpers
 
@@ -153,6 +154,10 @@ class Bot:
 
         hp_frac = me["hp"] / max(me["max_hp"], 1)
         energy = me.get("energy", 0)
+        if hp_frac < 0.40:
+            self.recovering = True
+        elif hp_frac > 0.70:
+            self.recovering = False
         mechs = [m for m in obs.get("mechs", []) if m.get("kind") == "mech"]
         npcs = [m for m in obs.get("mechs", []) if m.get("kind") == "npc"]
         attackers = {d[2] for d in self.dmg if t - d[0] < 4 and d[2] is not None}
@@ -176,7 +181,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif self.recovering and mechs and nearest < 120:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -204,6 +209,10 @@ class Bot:
                 else:
                     move = (sx / n, sy / n)
             boost = energy > 25
+        elif not in_goal and self._late(zone, t, x, y):
+            mode = "evac"
+            move = self._path_dir(x, y)
+            boost = energy > 30
         else:
             drop = self._drop_goal(obs, mechs, x, y)
             pick = None if drop else self._pickup_goal(obs, me, mechs, x, y, t)
@@ -401,7 +410,7 @@ class Bot:
                 direct = math.atan2(ty - y, tx - x)
                 if dh < rng - 2 and abs(wrap(ayaw - direct)) < cone * 0.8 and clear and me.get("energy", 0) > 8:
                     fire[1] = True
-            elif kind == "laser":
+            elif kind == "laser" and not escaping:
                 full = st.get("charge", 0.75)
                 ch = sec.get("charge", 0)
                 if ch >= full * 0.98:
