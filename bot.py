@@ -176,7 +176,7 @@ class Bot:
             mode = "zone!"
             move = self._path_dir(x, y)
             boost = energy > 10
-        elif hp_frac < 0.4 and mechs and nearest < 120:
+        elif False:
             mode = "retreat"
             foe = min(mechs, key=lambda m: math.dist(m["pos"][:2], (x, y)))
             ax, ay = self._move_toward(foe["pos"][0], foe["pos"][1], x, y)
@@ -401,7 +401,7 @@ class Bot:
                 direct = math.atan2(ty - y, tx - x)
                 if dh < rng - 2 and abs(wrap(ayaw - direct)) < cone * 0.8 and clear and me.get("energy", 0) > 8:
                     fire[1] = True
-            elif kind == "laser":
+            elif kind == "laser" and not escaping:
                 full = st.get("charge", 0.75)
                 ch = sec.get("charge", 0)
                 if ch >= full * 0.98:
