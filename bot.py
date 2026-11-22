@@ -61,6 +61,7 @@ class Bot:
         self.scan0 = self.rng.uniform(-math.pi, math.pi)
         self.bad_pickups = {}
         self.goal = (0.0, 0.0, 1e9)
+        self.tgt_id = None
 
     # ------------------------------------------------------------ helpers
 
@@ -164,7 +165,30 @@ class Bot:
         cands = [m for m in mechs if m["id"] in attackers or math.dist(m["pos"][:2], (x, y)) < 160]
         if not cands:
             cands = [m for m in npcs if m["id"] in attackers]
-        target = min(cands, key=tscore) if cands else None
+        target = None
+        if cands:
+            ranked = sorted(cands, key=tscore)[:4]
+            mz = z + me["stats"].get("muzzle_height", 7)
+
+            def seen(m):
+                if w is None:
+                    return True
+                tx, ty, tz = m["pos"]
+                return w.los((x, y, mz), (tx, ty, tz + 4.5)) or w.los((x, y, mz), (tx, ty, tz + 8.0))
+
+            pool = [m for m in ranked if seen(m)] or ranked
+
+            def fscore(m):
+                s = tscore(m)
+                hp, mhp = m.get("hp"), m.get("max_hp")
+                if hp is not None and mhp and hp < 0.3 * mhp:
+                    s -= 60          # nearly dead: finish it
+                if m["id"] == self.tgt_id:
+                    s -= 30          # stick with what we're already shooting
+                return s
+
+            target = min(pool, key=fscore)
+            self.tgt_id = target["id"]
         nearest = min((math.dist(m["pos"][:2], (x, y)) for m in mechs), default=INF)
 
         # ---- movement
@@ -401,7 +425,7 @@ class Bot:
                 direct = math.atan2(ty - y, tx - x)
                 if dh < rng - 2 and abs(wrap(ayaw - direct)) < cone * 0.8 and clear and me.get("energy", 0) > 8:
                     fire[1] = True
-            elif kind == "laser":
+            elif kind == "laser" and not escaping:
                 full = st.get("charge", 0.75)
                 ch = sec.get("charge", 0)
                 if ch >= full * 0.98:
