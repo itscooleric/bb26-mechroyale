@@ -37,7 +37,7 @@ class Bot:
     def __init__(self, hello: mf.Hello):
         self.cfg = hello["config"]
         self.me_id = hello.get("slot", -1)
-        self.rng = random.Random(hello.get("seed", 0))
+        self.rng = random.Random(hello.get("seed", 0) * 7919 + 17)
         self.world = None
         try:
             self.world = World(hello["map"]["dir"], self.cfg)
